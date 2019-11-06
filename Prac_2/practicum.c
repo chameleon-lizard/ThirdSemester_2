@@ -60,9 +60,12 @@ main(int argc, char *argv[])
                         execlp(argv[PR3], argv[PR3], argv[ARGS], NULL);
                         _exit(1);
                     } else {
-                        //wait(&status);
+                        close(communication[0]);
+                        close(communication[1]);
+
+                        wait(&status);
                         if (WIFEXITED(status) && !WEXITSTATUS(status)) {
-                            printf("This is the end, my only friend.\n");
+                            printf("This is the end.\n");
                         }
                     }
                 }
