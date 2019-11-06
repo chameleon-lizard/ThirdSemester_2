@@ -1,7 +1,7 @@
 all: practicum_2
 
 WARNINGS = -Wall
-DEBUG = -ggdb -fno-omit-frame-pointer
+DEBUG = -ggdb -fno-omit-frame-pointer --coverage
 OPTIMIZE = -O2
 
 practicum_2: Makefile practicum_2.c
