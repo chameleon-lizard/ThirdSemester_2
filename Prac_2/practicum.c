@@ -1,9 +1,13 @@
 #include <unistd.h>
+#include <signal.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <wait.h>
 
 //  (pr1 arg1 > f) && (pr2 | pr3 args...)
+
+// This is the global variable, where there the pid of the child process is being stored.
+int pid = 0;
 
 enum
 {
@@ -15,6 +19,15 @@ enum
     ARGS = 6
 };
 
+void
+fsig(int sig)
+{
+    signal(SIGKILL, fsig);
+
+    kill(pid, sig);
+    _exit(0);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -22,7 +35,9 @@ main(int argc, char *argv[])
         return 1;
     }
 
-    if (fork() == 0) {
+    signal(SIGKILL, fsig);
+
+    if ((pid = fork()) == 0) {
         // Here we created a child process, it uses pr1 with arg1 and writes it to file f.
         int f = open(argv[F], O_CREAT | O_WRONLY | O_TRUNC, 0777);
         close(1);
@@ -38,7 +53,7 @@ main(int argc, char *argv[])
             // We are now creating a pipe to ensure communication between processes.
             int communication[2];
             pipe(communication);
-            if (fork() == 0) {
+            if ((pid = fork()) == 0) {
                 // Here we have a second child; we waited for the first one to die, so this is the
                 // only sibling of the original parent process. We use dup2 to duplicate a file
                 // descriptor from stdout to stdin, so we basically have a pipe from the child to
@@ -51,7 +66,7 @@ main(int argc, char *argv[])
             } else {
                 wait(&status);
                 if (WIFEXITED(status) && !WEXITSTATUS(status)) {
-                    if (fork() == 0) {
+                    if ((pid = fork()) == 0) {
                         // Created a child again, so we can ensure that everything went smoothly
                         // by checking exit code in father's process.
                         close(communication[1]);
@@ -65,7 +80,7 @@ main(int argc, char *argv[])
 
                         wait(&status);
                         if (WIFEXITED(status) && !WEXITSTATUS(status)) {
-                            printf("This is the end.\n");
+                            return 0;
                         }
                     }
                 }
