@@ -1,17 +1,20 @@
-all: practicum_1
+TARGET = practicum_1
 
 WARNINGS = -Wall
 DEBUG = -ggdb -fno-omit-frame-pointer
 OPTIMIZE = -O2
 
-practicum_1: Makefile practicum_1.c
-	$(CC) -o $@ $(WARNINGS) $(DEBUG) $(OPTIMIZE) practicum_1.c
+$(TARGET): main.o lib.a
+	    gcc $^ $(WARNINGS) $(DEBUG) $(OPTIMIZE) -o practicum_1
+
+main.o: practicum_1.c
+	    gcc -c $< -o $@
+
+lib.a: list.o
+	    ar rcs $@ $^
+
+list.o: list.c list.h
+	    gcc -c -o $@ $<
 
 clean:
-	rm -f practicum_1
-
-debug:
-	gdb ./practicum_1
-
-run:
-	./practicum_1
+	    rm -f *.o *.a $(TARGET)
