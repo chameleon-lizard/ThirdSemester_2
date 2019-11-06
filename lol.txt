@@ -1,9 +1,0 @@
-total 28
-drwxr-xr-x 6 chameleon chameleon 4096 ноя  6 15:30 .
-drwxr-xr-x 9 chameleon chameleon 4096 ноя  6 11:07 ..
-drwxr-xr-x 8 chameleon chameleon 4096 ноя  6 16:07 .git
--rwxr-xr-x 1 chameleon chameleon    0 ноя  6 16:07 lol.txt
-drwxr-xr-x 4 chameleon chameleon 4096 ноя  6 10:51 Prac_1
-drwxr-xr-x 4 chameleon chameleon 4096 ноя  6 16:07 Prac_2
--rw-r--r-- 1 chameleon chameleon  212 ноя  6 10:51 README.md
-drwxr-xr-x 2 chameleon chameleon 4096 ноя  6 15:30 .vscode
