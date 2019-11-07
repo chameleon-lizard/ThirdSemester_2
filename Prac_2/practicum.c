@@ -50,6 +50,8 @@ main(int argc, char *argv[])
         dup(f);
         close(f);
 
+         sleep(5);
+
         execlp(argv[PR1], argv[PR1], argv[ARG1], NULL);
         _exit(1);
     } else {
@@ -68,7 +70,9 @@ main(int argc, char *argv[])
                 close(communication[0]);
                 dup2(communication[1], STDOUT_FILENO);
                 close(communication[1]);
-
+                
+                sleep(5);
+                
                 execlp(argv[PR2], argv[PR2], NULL);
                 _exit(1);
             } else {
@@ -83,7 +87,9 @@ main(int argc, char *argv[])
                         dup2(communication[0], STDIN_FILENO);
                         close(communication[0]);
 
-                        execlp(argv[PR3], argv[PR3], argv[ARGS], NULL);
+                        sleep(5);
+
+                        execvp(argv[PR3], &argv[PR3]);
                         _exit(1);
                     } else {
                         // Closing all pipes in father, so it won't freeze, waiting for a successful

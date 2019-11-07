@@ -14,4 +14,4 @@ debug:
 	gdb --args ./practicum ls -la lol.txt ls wc -c 
 
 run:
-	./practicum ls -la lol.txt ls wc -c
+	./practicum ls -la lol.txt ls wc -c -w
