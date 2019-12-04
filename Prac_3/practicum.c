@@ -22,15 +22,27 @@ main(int argc, char *argv[])
     int *children = calloc(N, sizeof(*children));
     children[0] = getpid();
 
+    // Creating semaphores to ensure there are no race conditions.
+    key_t key = ftok("/usr/bin/zsh", 's');
+    int semid = semget(key, N / 2, IPC_CREAT | 0666);
+
+    // Creating shared memory.
+    int shmid = shmget(key, N / 2 * sizeof(char), IPC_CREAT | 0666);
+    int *shm = shmat(shmid, NULL, 0);
+
     for(int i = 0; i < N; i++) {
         if (!(children[i] = fork())) {
-            break;
+            // Children gotta talk.
+            struct sembuf d = {i, -1, SEM_UNDO};
+            struct sembuf u = {i,  1, SEM_UNDO};
+            semop(semid, &d, 1);
+            // Critical part of the code.
+            
+            semop(semid, &u, 1);
         } else {
             continue;
         }
     }
-
-    
 
     free(children);
 
