@@ -54,8 +54,8 @@ main(int argc, char *argv[])
                 shm[i] = number;
                 shm[number] = i;
                 printf("%d: %d\n", i, number);
+                printf("%d: %d\n", number, i);
                 fflush(stdout);
-                sleep(1);
                 shm[i] = -1;
 
                 semop(semid, &u, 1);
