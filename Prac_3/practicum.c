@@ -17,8 +17,6 @@ main(int argc, char *argv[])
         return 1;
     }
 
-    srand(time(NULL));
-
     // Creating N children, saving their pids to mercilessly kill them when the
     // time comes.
     int N = atoi(argv[1]);
@@ -30,8 +28,8 @@ main(int argc, char *argv[])
 
     // Creating semaphores to ensure there are no race conditions.
     key_t key = ftok("/usr/bin/zsh", 's');
-    int semid = semget(key, N / 2, IPC_CREAT | 0666);
-    for (int i = 0; i < N / 2; i++) {
+    int semid = semget(key, N, IPC_CREAT | 0666);
+    for (int i = 0; i < N; i++) {
         semctl(semid, 1, SETVAL, 1);
     }
 
@@ -42,21 +40,23 @@ main(int argc, char *argv[])
 
     for(int i = 0; i < N; i++) {
         if (!(children[i] = fork())) {
+            srand(i);
             for (int j = 0; j < atoi(argv[2]); j++) {
                 // Getting phone number.
-                int number = -1;
-                while ((number = rand() % (N) - 1) == i);
-                struct sembuf d = {number / 2, -1, SEM_UNDO};
-                struct sembuf u = {number / 2,  1, SEM_UNDO};
+                int number = 0;
+                while ((number = rand() % (N)) == i);
+                struct sembuf d[2] = {{number, -1, SEM_UNDO}, {i, -1, SEM_UNDO}};
+                struct sembuf u[2] = {{number,  1, SEM_UNDO}, {i, 1, SEM_UNDO}};
                 
                 // Critical part of the code.
                 semop(semid, &d, 1);
 
                 shm[i] = number;
+                shm[number] = i;
                 printf("%d: %d\n", i, number);
                 fflush(stdout);
                 sleep(1);
-                shm[i] = 0;
+                shm[i] = -1;
 
                 semop(semid, &u, 1);
             }
