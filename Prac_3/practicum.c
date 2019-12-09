@@ -22,12 +22,8 @@ main(int argc, char *argv[])
     int N = atoi(argv[1]);
     N++;
 
-    // Initializing array for pids, first int is the pid of father process.
-    int *children = calloc(N, sizeof(*children));
-    children[0] = getpid();
-
     // Creating semaphores to ensure there are no race conditions.
-    key_t key = ftok("/usr/bin/zsh", 's');
+    key_t key = ftok("/usr/bin/bash", 's');
     int semid = semget(key, N, IPC_CREAT | 0666);
     for (int i = 0; i < N; i++) {
         semctl(semid, 1, SETVAL, 1);
@@ -39,7 +35,7 @@ main(int argc, char *argv[])
     memset(shm, 0, sizeof(int));
 
     for(int i = 0; i < N; i++) {
-        if (!(children[i] = fork())) {
+        if (!fork()) {
             srand(i);
             for (int j = 0; j < atoi(argv[2]); j++) {
                 // Getting phone number.
@@ -56,7 +52,6 @@ main(int argc, char *argv[])
                 printf("%d: %d\n", i, number);
                 printf("%d: %d\n", number, i);
                 fflush(stdout);
-                shm[i] = -1;
 
                 semop(semid, &u, 1);
             }
