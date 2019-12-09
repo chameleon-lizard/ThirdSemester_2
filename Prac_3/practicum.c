@@ -54,7 +54,8 @@ main(int argc, char *argv[])
 
                 shm[i] = number;
                 printf("%d: %d\n", i, number);
-                // sleep(1);
+                fflush(stdout);
+                sleep(1);
                 shm[i] = 0;
 
                 semop(semid, &u, 1);
@@ -65,7 +66,7 @@ main(int argc, char *argv[])
         }
     }
 
-    while (wait(NULL) != -1 && fflush(stdout));
+    while (wait(NULL) != -1);
     shmdt(shm);
     shmctl(shmid, IPC_RMID, (int)0);
     semctl(semid, IPC_RMID, (int)0);
