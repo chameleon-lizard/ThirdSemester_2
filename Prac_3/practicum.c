@@ -5,9 +5,31 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <stdio.h>
 #include <wait.h>
 #include <time.h>
+
+int *children;
+int N;
+int semid;
+int shmid;
+int *shm;
+
+
+void
+fsig(int sig) 
+{
+    for (int i = 0; i < N; i++) {
+        kill(SIGTERM, children[i]);
+    }
+
+    // Freeing resources.
+    free(children);
+    shmdt(shm);
+    shmctl(shmid, IPC_RMID, (int)0);
+    semctl(semid, IPC_RMID, (int)0);
+}
 
 int
 main(int argc, char *argv[])
@@ -19,23 +41,26 @@ main(int argc, char *argv[])
 
     // Creating N children, saving their pids to mercilessly kill them when the
     // time comes.
-    int N = atoi(argv[1]);
+    N = atoi(argv[1]);
     N++;
 
+    // Initializing array for pids.
+    children = calloc(N, sizeof(*children));
+
     // Creating semaphores to ensure there are no race conditions.
-    key_t key = ftok("/usr/bin/bash", 's');
-    int semid = semget(key, N, IPC_CREAT | 0666);
+    key_t key = ftok("/usr/bin/zsh", 's');
+    semid = semget(key, N, IPC_CREAT | 0666);
     for (int i = 0; i < N; i++) {
         semctl(semid, 1, SETVAL, 1);
     }
 
     // Creating shared memory.
-    int shmid = shmget(key, N * sizeof(int), IPC_CREAT | 0666);
+    shmid = shmget(key, N * sizeof(int), IPC_CREAT | 0666);
     int *shm = shmat(shmid, NULL, 0);
     memset(shm, 0, sizeof(int));
 
     for(int i = 0; i < N; i++) {
-        if (!fork()) {
+        if (!(children[i] = fork())) {
             srand(i);
             for (int j = 0; j < atoi(argv[2]); j++) {
                 // Getting phone number.
@@ -45,15 +70,15 @@ main(int argc, char *argv[])
                 struct sembuf u[2] = {{number,  1, SEM_UNDO}, {i, 1, SEM_UNDO}};
                 
                 // Critical part of the code.
-                semop(semid, &d, 1);
+                semop(semid, d, 1);
 
                 shm[i] = number;
                 shm[number] = i;
-                printf("%d: %d\n", i, number);
-                printf("%d: %d\n", number, i);
+                printf("Caller is: %d->%d\n", i, shm[i]);
+                printf("Recipient is: %d<-%d\n", number, shm[number]);
                 fflush(stdout);
 
-                semop(semid, &u, 1);
+                semop(semid, u, 1);
             }
             _exit(0);
         } else {
@@ -61,7 +86,9 @@ main(int argc, char *argv[])
         }
     }
 
+    // Waiting for all processes to finish and freeing resources.
     while (wait(NULL) != -1);
+    free(children);
     shmdt(shm);
     shmctl(shmid, IPC_RMID, (int)0);
     semctl(semid, IPC_RMID, (int)0);
