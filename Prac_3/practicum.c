@@ -41,22 +41,23 @@ main(int argc, char *argv[])
 
     // Creating N children, saving their pids to mercilessly kill them when the
     // time comes.
-    N = atoi(argv[1]);
+    int N = atoi(argv[1]);
     N++;
 
-    // Initializing array for pids.
+    // Initializing array for pids, first int is the pid of father process.
     children = calloc(N, sizeof(*children));
+    children[0] = getpid();
 
     // Creating semaphores to ensure there are no race conditions.
     key_t key = ftok("/usr/bin/zsh", 's');
     semid = semget(key, N, IPC_CREAT | 0666);
     for (int i = 0; i < N; i++) {
-        semctl(semid, 1, SETVAL, 1);
+        semctl(semid, i, SETVAL, 1);
     }
 
     // Creating shared memory.
     shmid = shmget(key, N * sizeof(int), IPC_CREAT | 0666);
-    int *shm = shmat(shmid, NULL, 0);
+    shm = shmat(shmid, NULL, 0);
     memset(shm, 0, sizeof(int));
 
     for(int i = 0; i < N; i++) {
@@ -65,7 +66,7 @@ main(int argc, char *argv[])
             for (int j = 0; j < atoi(argv[2]); j++) {
                 // Getting phone number.
                 int number = 0;
-                while ((number = rand() % (N)) == i);
+                while (((number = rand() % (N)) == i) && (shm[number] == -1) && (shm[i] == -1));
                 struct sembuf d[2] = {{number, -1, SEM_UNDO}, {i, -1, SEM_UNDO}};
                 struct sembuf u[2] = {{number,  1, SEM_UNDO}, {i, 1, SEM_UNDO}};
                 
@@ -74,9 +75,11 @@ main(int argc, char *argv[])
 
                 shm[i] = number;
                 shm[number] = i;
-                printf("Caller is: %d->%d\n", i, shm[i]);
-                printf("Recipient is: %d<-%d\n", number, shm[number]);
+                printf("%d: %d\n", i, number);
+                printf("%d: %d\n", number, i);
                 fflush(stdout);
+                shm[number] = -1;
+                shm[i] = -1;
 
                 semop(semid, u, 1);
             }
@@ -86,9 +89,7 @@ main(int argc, char *argv[])
         }
     }
 
-    // Waiting for all processes to finish and freeing resources.
     while (wait(NULL) != -1);
-    free(children);
     shmdt(shm);
     shmctl(shmid, IPC_RMID, (int)0);
     semctl(semid, IPC_RMID, (int)0);
