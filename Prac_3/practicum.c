@@ -42,7 +42,6 @@ main(int argc, char *argv[])
     // Creating N children, saving their pids to mercilessly kill them when the
     // time comes.
     int N = atoi(argv[1]);
-    N++;
 
     // Initializing array for pids, first int is the pid of father process.
     children = calloc(N, sizeof(*children));
@@ -50,15 +49,15 @@ main(int argc, char *argv[])
 
     // Creating semaphores to ensure there are no race conditions.
     key_t key = ftok("/usr/bin/zsh", 's');
-    semid = semget(key, N, IPC_CREAT | 0666);
-    for (int i = 0; i < N; i++) {
+    semid = semget(key, N * 2, IPC_CREAT | 0666);
+    for (int i = 0; i < 2 * N; i++) {
         semctl(semid, i, SETVAL, 1);
     }
 
     // Creating shared memory.
     shmid = shmget(key, N * sizeof(int), IPC_CREAT | 0666);
     shm = shmat(shmid, NULL, 0);
-    memset(shm, 0, sizeof(int));
+    memset(shm, -1, sizeof(int) * N);
 
     for(int i = 0; i < N; i++) {
         if (!(children[i] = fork())) {
@@ -66,30 +65,43 @@ main(int argc, char *argv[])
             for (int j = 0; j < atoi(argv[2]); j++) {
                 // Getting phone number.
                 int number = 0;
-                while (((number = rand() % (N)) == i) && (shm[number] == -1) && (shm[i] == -1));
+                while ((number = rand() % (N - 1)) == i);
+
+                
+                struct sembuf dm[2] = {{N + number, -1, SEM_UNDO}, {N + i, -1, SEM_UNDO}};
+                struct sembuf um[2] = {{N + number,  1, SEM_UNDO}, {N + i, 1, SEM_UNDO}};
                 struct sembuf d[2] = {{number, -1, SEM_UNDO}, {i, -1, SEM_UNDO}};
                 struct sembuf u[2] = {{number,  1, SEM_UNDO}, {i, 1, SEM_UNDO}};
-                
+
                 // Critical part of the code.
-                semop(semid, d, 1);
+                semop(semid, dm, 1);
 
-                shm[i] = number;
-                shm[number] = i;
-                printf("%d: %d\n", i, number);
-                printf("%d: %d\n", number, i);
-                fflush(stdout);
-                shm[number] = -1;
-                shm[i] = -1;
+                if (shm[number] == -1 && shm[i] == -1) {
+                    semop(semid, d, 1);
 
-                semop(semid, u, 1);
+                    shm[i] = number;
+                    shm[number] = i;
+                    printf("%d: %d\n", i, number);
+                    printf("%d: %d\n", number, i);
+                    fflush(stdout);
+                    shm[number] = -1;
+                    shm[i] = -1;
+                    
+                    semop(semid, u, 1);
+
+                    semop(semid, um, 1);
+                } else {
+                    semop(semid, um, 1);
+                    j--;
+                    continue;
+                }
             }
             _exit(0);
-        } else {
-            continue;
         }
     }
 
     while (wait(NULL) != -1);
+    free(children);
     shmdt(shm);
     shmctl(shmid, IPC_RMID, (int)0);
     semctl(semid, IPC_RMID, (int)0);
