@@ -67,17 +67,19 @@ main(int argc, char *argv[])
                 int number = 0;
                 while ((number = rand() % (N - 1)) == i);
 
-                
-                struct sembuf dm[2] = {{N + number, -1, SEM_UNDO}, {N + i, -1, SEM_UNDO}};
-                struct sembuf um[2] = {{N + number,  1, SEM_UNDO}, {N + i, 1, SEM_UNDO}};
+                // For calls
                 struct sembuf d[2] = {{number, -1, SEM_UNDO}, {i, -1, SEM_UNDO}};
                 struct sembuf u[2] = {{number,  1, SEM_UNDO}, {i, 1, SEM_UNDO}};
 
+                // For memory
+                struct sembuf dm[2] = {{N + number, -1, SEM_UNDO}, {N + i, -1, SEM_UNDO}};
+                struct sembuf um[2] = {{N + number,  1, SEM_UNDO}, {N + i, 1, SEM_UNDO}};
+
                 // Critical part of the code.
-                semop(semid, dm, 1);
+                semop(semid, dm, 2);
 
                 if (shm[number] == -1 && shm[i] == -1) {
-                    semop(semid, d, 1);
+                    semop(semid, d, 2);
 
                     shm[i] = number;
                     shm[number] = i;
@@ -87,11 +89,11 @@ main(int argc, char *argv[])
                     shm[number] = -1;
                     shm[i] = -1;
                     
-                    semop(semid, u, 1);
+                    semop(semid, u, 2);
 
-                    semop(semid, um, 1);
+                    semop(semid, um, 2);
                 } else {
-                    semop(semid, um, 1);
+                    semop(semid, um, 2);
                     j--;
                     continue;
                 }
