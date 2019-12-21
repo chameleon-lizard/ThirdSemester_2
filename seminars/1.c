@@ -48,6 +48,7 @@ main(void)
     }
 
     while (wait(NULL) != -1);
+    semctl(semid, IPC_RMID, (int)0);
 
     return 0;
 }

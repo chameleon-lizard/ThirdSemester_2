@@ -16,19 +16,12 @@ int semid;
 int shmid;
 int *shm;
 
-
 void
 fsig(int sig) 
 {
-    for (int i = 0; i < N; i++) {
+    for (int i = 1; i < N; i++) {
         kill(SIGTERM, children[i]);
     }
-
-    // Freeing resources.
-    free(children);
-    shmdt(shm);
-    shmctl(shmid, IPC_RMID, (int)0);
-    semctl(semid, IPC_RMID, (int)0);
 }
 
 int
@@ -48,7 +41,7 @@ main(int argc, char *argv[])
     children[0] = getpid();
 
     // Creating semaphores to ensure there are no race conditions.
-    key_t key = ftok("/usr/bin/zsh", 's');
+    key_t key = ftok(IPC_PRIVATE, 's');
     semid = semget(key, N * 2, IPC_CREAT | 0666);
     for (int i = 0; i < 2 * N; i++) {
         semctl(semid, i, SETVAL, 1);
@@ -57,15 +50,26 @@ main(int argc, char *argv[])
     // Creating shared memory.
     shmid = shmget(key, N * sizeof(int), IPC_CREAT | 0666);
     shm = shmat(shmid, NULL, 0);
-    memset(shm, -1, sizeof(int) * N);
+    
+    if (shm == (void *)-1) {
+        perror("Memory error: ");
+    }
+    
+    for (int i = 0; i < N; i++) {
+        shm[i] = -1;
+    }
 
     for(int i = 0; i < N; i++) {
         if (!(children[i] = fork())) {
             srand(i);
+            if (N == 1) {
+                printf("Only one caller.\n");
+                _exit(0);
+            }
             for (int j = 0; j < atoi(argv[2]); j++) {
                 // Getting phone number.
                 int number = 0;
-                while ((number = rand() % (N - 1)) == i);
+                while ((number = rand() % (N)) == i);
 
                 // For calls
                 struct sembuf d[2] = {{number, -1, SEM_UNDO}, {i, -1, SEM_UNDO}};
@@ -83,7 +87,7 @@ main(int argc, char *argv[])
 
                     shm[i] = number;
                     shm[number] = i;
-                    printf("%d: %d\n", i, number);
+                    printf("Call %d: %d\n", i, number);
                     printf("%d: %d\n", number, i);
                     fflush(stdout);
                     shm[number] = -1;
@@ -92,6 +96,7 @@ main(int argc, char *argv[])
                     semop(semid, u, 2);
 
                     semop(semid, um, 2);
+                    printf("End call\n");
                 } else {
                     semop(semid, um, 2);
                     j--;
@@ -99,14 +104,16 @@ main(int argc, char *argv[])
                 }
             }
             _exit(0);
+        } else {
+            continue;
         }
     }
 
     while (wait(NULL) != -1);
     free(children);
     shmdt(shm);
-    shmctl(shmid, IPC_RMID, (int)0);
-    semctl(semid, IPC_RMID, (int)0);
+    semctl(semid, 0, IPC_RMID, (int)0);
+    shmctl(shmid, IPC_RMID, NULL);
 
     return 0;
 }
